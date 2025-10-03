@@ -141,7 +141,7 @@ function featuredpolls_install()
 		[
 			'name'        => 'featuredpolls_request_groups',
 			'title'       => 'Groups Allowed to Request Feature',
-			'description' => 'Select which usergroups can request their poll to be featured. This setting is checked in addition to the forum’s default poll permissions (users must already be able to create a poll in the forum).',
+			'description' => 'Select which usergroups can request their poll to be featured. This setting is checked in addition to the forumâ€™s default poll permissions (users must already be able to create a poll in the forum).',
 			'optionscode' => 'groupselect',
 			'value'       => '2,3,4,6',
 			'disporder'   => 10,
@@ -150,7 +150,7 @@ function featuredpolls_install()
 		[
 			'name'        => 'featuredpolls_view_groups',
 			'title'       => 'Groups Allowed to See Featured Block',
-			'description' => 'Select which usergroups can view the Featured Polls block on the index/portal. This setting is checked in addition to the forum’s default view permissions (users must already have access to the forum/thread).',
+			'description' => 'Select which usergroups can view the Featured Polls block on the index/portal. This setting is checked in addition to the forumâ€™s default view permissions (users must already have access to the forum/thread).',
 			'optionscode' => 'groupselect',
 			'value'       => '2,3,4,6',
 			'disporder'   => 11,
@@ -1840,7 +1840,6 @@ function featuredpolls_build_results_html($poll)
 			}
 		}
 
-		// Deduplicate into counts
 		$counts = [];
 		foreach ($all_names as $n) {
 			$counts[$n] = ($counts[$n] ?? 0) + 1;
@@ -1855,7 +1854,6 @@ function featuredpolls_build_results_html($poll)
 			}
 		}
 
-		// Apply max names limit
 		$more = max(0, count($names) - $max_names);
 		$names = array_slice($names, 0, $max_names);
 
@@ -2352,7 +2350,6 @@ function featuredpolls_set_featured($pid)
         );
         $disporder = $maxdisp + 1;
     } else {
-        // insert at top
         $db->write_query("
             UPDATE ".TABLE_PREFIX."featuredpolls
             SET disporder = disporder + 1
@@ -2484,14 +2481,11 @@ function featuredpolls_modcp_render()
 				$position = $mybb->settings['featuredpolls_promote_position'] ?? 'top';
 
 				if ($position === 'bottom') {
-					// append in order, one by one
 					foreach ($selected as $pid) {
 						featuredpolls_set_featured($pid);
 					}
 					featuredpolls_trim_and_reorder();
 				} else {
-					// top insertion: maintain original relative order, but insert as a block
-					// shift once for the whole batch
 					$db->write_query("
 						UPDATE ".TABLE_PREFIX."featuredpolls
 						SET disporder = disporder + ".count($selected)."
@@ -2508,7 +2502,7 @@ function featuredpolls_modcp_render()
 						);
 						
 						if (!featuredpolls_set_featured($pid)) {
-							break; // stop if max reached
+							break;
 						}
 						
 						if ($exists) {
