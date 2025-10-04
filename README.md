@@ -2,6 +2,7 @@
 
 ***(Still in very early stage of  development. Code logic and structure might be reworked for performance, compatibility, and security purposes***
 Promote thread polls into a global **Featured Polls** block with rich management tools, AJAX-powered voting, and moderator controls — all while keeping the plugin lightweight, clean, and secure.
+ * Featured Polls (MyBB 1.8.39+ / PHP 8.4)
 
 ---
 
