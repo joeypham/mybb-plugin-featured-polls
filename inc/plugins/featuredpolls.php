@@ -1339,14 +1339,16 @@ function featuredpolls_ajax_reorder()
 
             $db->update_query('featuredpolls', $update, "pid={$pid}");
 
-            $r = $db->fetch_array($db->query("
-                SELECT f.*, p.tid, p.question, t.subject
-                FROM ".TABLE_PREFIX."featuredpolls f
-                LEFT JOIN ".TABLE_PREFIX."polls p ON(p.pid=f.pid)
-                LEFT JOIN ".TABLE_PREFIX."threads t ON(t.tid=p.tid)
-                WHERE f.pid={$pid}
-                LIMIT 1
-            "));
+			$r = $db->fetch_array($db->query("
+				SELECT f.*, p.tid, p.question, t.subject,
+					   u.username AS requester_name, u.uid AS requester_uid, u.usergroup, u.displaygroup
+				FROM ".TABLE_PREFIX."featuredpolls f
+				LEFT JOIN ".TABLE_PREFIX."polls p ON(p.pid=f.pid)
+				LEFT JOIN ".TABLE_PREFIX."threads t ON(t.tid=p.tid)
+				LEFT JOIN ".TABLE_PREFIX."users u ON(u.uid=f.requested_by)
+				WHERE f.pid={$pid}
+				LIMIT 1
+			"));
 
             if ($r) {
 				$poll_question  = htmlspecialchars_uni($r['question'] ?: $lang->fp_no_question);
@@ -1355,8 +1357,18 @@ function featuredpolls_ajax_reorder()
                 $properties = featuredpolls_get_status_properties($r['featured']);
 				$status_label = $properties['label'];
 				$status_class = $properties['class'];
-						$extra_html = featuredpolls_build_extra_html($r, (int)$r['featured'], $lang, $mybb);
-
+				$extra_html = featuredpolls_build_extra_html($r, (int)$r['featured'], $lang, $mybb);
+				
+				$requester_html = '';
+				if ((int)$r['featured'] === 0 && !empty($r['requester_uid']) && !empty($r['requester_name'])) {
+					$display_name = format_name(
+						htmlspecialchars_uni($r['requester_name']),
+						(int)$r['usergroup'],
+						(int)$r['displaygroup']
+					);
+					$profile_link = build_profile_link($display_name, (int)$r['requester_uid']);
+					$requester_html = "<div class=\"smalltext\">{$lang->fp_modcp_requested_by} {$profile_link}</div>";
+				}
                 eval('$updates[$pid] = "'.$templates->get('featuredpolls_modcp_item').'";');
             }
 
@@ -2194,17 +2206,17 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
     $limit_sql = ($limit > 0) ? "LIMIT " . (int)$limit : "";
 
     // Include requester info
-	$q = $db->query("
-		SELECT f.*, p.tid, p.question, t.subject,
-			   u.username AS requester_name, u.uid AS requester_uid, u.usergroup, u.displaygroup
-		FROM ".TABLE_PREFIX."featuredpolls f
-		LEFT JOIN ".TABLE_PREFIX."polls p ON (p.pid=f.pid)
-		LEFT JOIN ".TABLE_PREFIX."threads t ON (t.tid=p.tid)
-		LEFT JOIN ".TABLE_PREFIX."users u ON (u.uid=f.requested_by)
-		WHERE {$where}
-		ORDER BY f.disporder ASC, {$order_by}
-		{$limit_sql}
-	");
+    $q = $db->query("
+        SELECT f.*, p.tid, p.question, t.subject,
+               u.username AS requester_name, u.uid AS requester_uid, u.usergroup, u.displaygroup
+        FROM ".TABLE_PREFIX."featuredpolls f
+        LEFT JOIN ".TABLE_PREFIX."polls p ON (p.pid=f.pid)
+        LEFT JOIN ".TABLE_PREFIX."threads t ON (t.tid=p.tid)
+        LEFT JOIN ".TABLE_PREFIX."users u ON (u.uid=f.requested_by)
+        WHERE {$where}
+        ORDER BY f.disporder ASC, {$order_by}
+        {$limit_sql}
+    ");
     
     $count = $db->num_rows($q);
 
@@ -2219,18 +2231,17 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
 
         $extra_html = featuredpolls_build_extra_html($r, (int)$r['featured'], $lang, $mybb);
 
-        // Add requester info (only for pending polls)
-		$requester_html = '';
-		if ((int)$r['featured'] === 0 && !empty($r['requester_uid']) && !empty($r['requester_name'])) {
-			// Pull the user’s group formatting if available
-			$display_name = format_name(
-				htmlspecialchars_uni($r['requester_name']),
-				(int)$r['usergroup'],
-				(int)$r['displaygroup']
-			);
-			$profile_link = build_profile_link($display_name, (int)$r['requester_uid']);
-			$requester_html = "<div class=\"smalltext\">{$lang->fp_modcp_requested_by} {$profile_link}</div>";
-		}
+        // --- FIX: define $requester_html safely ---
+        $requester_html = '';
+        if ((int)$r['featured'] === 0 && !empty($r['requester_uid']) && !empty($r['requester_name'])) {
+            $display_name = format_name(
+                htmlspecialchars_uni($r['requester_name']),
+                (int)$r['usergroup'],
+                (int)$r['displaygroup']
+            );
+            $profile_link = build_profile_link($display_name, (int)$r['requester_uid']);
+            $requester_html = "<div class=\"smalltext\">{$lang->fp_modcp_requested_by} {$profile_link}</div>";
+        }
 
         eval("\$items .= \"".$templates->get('featuredpolls_modcp_item')."\";");
     }
@@ -2241,6 +2252,7 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
 
     return ['html' => $items, 'count' => $count];
 }
+
 
 
 function featuredpolls_modcp()
@@ -2421,8 +2433,19 @@ function featuredpolls_modcp()
 
 function featuredpolls_build_extra_html($r, $status, $lang, $mybb)
 {
+	$extra_html = '';
     $pid = (int)$r['pid'];
     $ts  = (int)$r['expires'];
+	
+	// === Requested by (only for pending polls) ===
+	if ((int)$status === 0 && !empty($r['requested_by'])) {
+		$user = get_user((int)$r['requested_by']);
+		if ($user) {
+			$profile_link = get_profile_link($user['uid']);
+			$username_html = format_name($user['username'], $user['usergroup'], $user['displaygroup']);
+			$extra_html .= "<div class='smalltext'>{$lang->fp_modcp_requested_by} <a href='{$profile_link}'>{$username_html}</a></div>";
+		}
+	}
 
     // For featured polls: show editable expiry datetime with live AJAX save button.
 	if ($status === 1) {
