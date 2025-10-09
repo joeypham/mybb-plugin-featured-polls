@@ -138,7 +138,9 @@ $l['fp_modcp_featured_limit_reached']  = 'You can only feature {1} polls at once
 $l['fp_modcp_expiry_updated']          = 'Expiry updated.';
 $l['fp_modcp_featured_none']           = 'No featured polls yet.';
 $l['fp_modcp_request_none']            = 'No poll requests pending.';
+$l['fp_modcp_requested_by']            = 'Requested by:';
 $l['fp_modcp_queue_none']              = 'No polls in queue.';
+$l['fp_modcp_manage_tools']            = 'Poll Management Tools';
 
 // -----------------------------------------------------------------------------
 // MOD CP — NOTICES / WARNINGS

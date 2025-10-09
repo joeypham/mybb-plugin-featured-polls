@@ -5,6 +5,9 @@
  * - Global block renders featured polls (inserted on index by default)
  * - AJAX voting with optional redirect; results/vote toggle; undo vote; edit link for owner
  * - Simple Mod CP page: list/add/remove featured PIDs
+ ****** NOTE:
+ * Uses MyBB's security conventions (verify_post_check, group permissions)
+ * and AJAX endpoints for live reorder, expiry editing, and in-block voting.
  */
 
 if(!defined('IN_MYBB')){ die('No direct script access.'); }
@@ -36,19 +39,20 @@ function featuredpolls_install()
 
     $collation = $db->build_create_table_collation();
 
-    if (!$db->table_exists('featuredpolls')) {
-        $db->write_query("
-            CREATE TABLE `".TABLE_PREFIX."featuredpolls` (
-              `pid` INT UNSIGNED NOT NULL,
-              `featured` TINYINT(1) NOT NULL DEFAULT 1,
-              `dateline` INT UNSIGNED NOT NULL DEFAULT 0,
-              `expires` INT UNSIGNED NOT NULL DEFAULT 0,
-              `disporder` INT(10) UNSIGNED NOT NULL DEFAULT 0,
-              PRIMARY KEY (`pid`),
-              INDEX `fp_featured_dateline` (`featured`, `dateline`)
-            ) ENGINE=InnoDB {$collation};
-        ");
-    }
+	if (!$db->table_exists('featuredpolls')) {
+		$db->write_query("
+			CREATE TABLE `".TABLE_PREFIX."featuredpolls` (
+			  `pid` INT UNSIGNED NOT NULL,
+			  `featured` TINYINT(1) NOT NULL DEFAULT 1,
+			  `dateline` INT UNSIGNED NOT NULL DEFAULT 0,
+			  `expires` INT UNSIGNED NOT NULL DEFAULT 0,
+			  `disporder` INT(10) UNSIGNED NOT NULL DEFAULT 0,
+			  `requested_by` INT UNSIGNED NOT NULL DEFAULT 0,
+			  PRIMARY KEY (`pid`),
+			  INDEX `fp_featured_dateline` (`featured`, `dateline`)
+			) ENGINE=InnoDB {$collation};
+		");
+	}
 
     $gid = (int)$db->insert_query('settinggroups', [
         'name'        => 'featuredpolls',
@@ -187,132 +191,58 @@ function featuredpolls_install()
 	require_once MYBB_ADMIN_DIR.'inc/functions_themes.php';
 
 $stylesheet = <<<CSS
-.featuredpolls { box-shadow:0 2px 6px rgba(0,0,0,0.08); border-radius:8px; overflow:hidden; margin-bottom:16px; margin-bottom:16px;}
-.featuredpolls .thead { background:linear-gradient(90deg,#2563eb,#1d4ed8); color:#fff; padding:10px 14px; font-size:1em; }
-.featuredpolls .trow1 { background:#f9fafb; padding:12px; }
-
-.poll-card { border-radius:12px; border:1px solid #e5e7eb; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.06); transition:all 0.2s; }
-.poll-card .thead { padding:16px 20px; background:linear-gradient(90deg,#f5f8fc,#ebf0f8); border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center; }
-
-.fp-box { max-height: 300px; overflow-y: auto; padding-right: 6px;}
-.fp-box::-webkit-scrollbar { width: 8px;}
-.fp-box::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px;}
-.fp-box::-webkit-scrollbar-thumb:hover { background: #999;}
-
-.fp-btn { display:inline-block; padding:6px 14px; border-radius:6px; font-size:0.9em; font-weight:500; text-decoration:none; background:#2563eb; color:#fff !important; transition:all 0.2s; }
-.fp-btn:hover { background:#1d4ed8; }
-.fp-btn.secondary { background:#e5e7eb; color:#111 !important; }
-.fp-btn.secondary:hover { background:#d1d5db; }
-.fp-btn.warning { background:#f97316; color:#fff !important; }
-.fp-btn.warning:hover { background:#ea580c; }
-
-.fp-status { font-weight:700; font-size:0.9em; margin-left:6px; }
-.fp-status-featured { color:#080; }
-.fp-status-pending  { color:#b80; }
-.fp-status-expired  { color:#888; }
-.fp-status-queued   { color:#06c; }
-.fp-status-none     { color:#aaa; }
-
-.fp-status-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: 500;
-    margin-left: 8px;
-    vertical-align: middle;
-    border: 1px solid transparent;
-}
-
-.fp-status-badge.fp-status-featured {
-    background-color: #ecfdf5; /* Light Green */
-    color: #065f46;
-    border-color: #a7f3d0;
-}
-.fp-status-badge.fp-status-pending {
-    background-color: #fefce8; /* Light Yellow */
-    color: #854d0e;
-    border-color: #fde68a;
-}
-.fp-status-badge.fp-status-expired {
-    background-color: #f3f4f6; /* Light Gray */
-    color: #4b5563;
-    border-color: #d1d5db;
-}
-.fp-status-badge.fp-status-queued {
-    background-color: #eff6ff; /* Light Blue */
-    color: #1e40af;
-    border-color: #bfdbfe;
-}
-
-.poll-option { margin:10px 0; }
-.poll-option label { display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa; cursor:pointer; transition:all 0.2s; }
-.poll-option label:hover { background:#f1f5f9; }
-
-.poll-result { display:flex; align-items:center; gap:12px; margin:6px 0; font-size:0.95em; }
-.poll-result div { color:#333; }
-.poll-result .bar { background:#f1f5f9; border-radius:7px; overflow:hidden; height:14px; }
-.poll-result .bar-inner { height:100%; background:linear-gradient(90deg,#3b82f6,#1d4ed8); }
-
-.ui-state-highlight { height: 48px; background: #e0f2fe; border: 2px dashed #38bdf8; border-radius: 6px; margin: 6px 0; }
-.ui-sortable-helper { opacity: 0.9; transform: scale(1.02); background: #fff; box-shadow: 0 6px 14px rgba(0,0,0,0.15); border-radius: 6px; }
-
-.fp-handle { cursor: grab; font-size: 18px; color: #666; padding: 0 6px; user-select: none; }
-.fp-handle:hover { color: #111; }
-
-.fp-empty { padding: 20px; text-align: center; color: #aaa; border: 2px dashed #ccc; border-radius: 6px; background: #fafafa; margin: 6px 0; font-size: 0.9em; min-height: 60px; line-height: 60px; }
-.fp-empty.ui-state-highlight { background: #e0f2fe; border-color: #38bdf8; color: #0369a1; }
-
-.fp-sortable { min-height: 60px; list-style:none; margin:0; padding:0; }
-
-.fp-feedback { margin-bottom:10px; padding:8px 12px; border-radius:6px; text-align:center; font-weight:500; display:none; }
-
-.smalltext-extra { margin-top:4px; }
-
-.jGrowl {
-  z-index: 99999; 
-  font-family: inherit;
-  max-width: 340px;
-}
-
-.jGrowl-notification {
-  border-radius: 10px !important;
-  padding: 12px 16px !important;
-  font-size: 0.9em !important;
-  font-weight: 500 !important;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-  margin-bottom: 10px !important;
-}
-
-.jGrowl-notification.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #28a745;
-}
-
-.jGrowl-notification.error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #dc2626;
-}
-
-.jGrowl-notification.warning {
-  background: #fef9c3;
-  color: #92400e;
-  border: 1px solid #f59e0b;
-}
-
-.jGrowl-close {
-  color: inherit !important;
-  font-weight: bold;
-  margin-left: 8px;
-  cursor: pointer;
-  opacity: 0.6;
-}
-.jGrowl-close:hover {
-  opacity: 1;
-}
-
+.fb-actions{background:#fafafa;border-top:1px solid #eee;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:14px 20px;}
+.featuredpolls{border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08);margin-bottom:16px;overflow:hidden;}
+.featuredpolls .thead{background:linear-gradient(90deg,#2563eb,#1d4ed8);color:#fff;font-size:1em;padding:10px 14px;}
+.featuredpolls .trow1{background:#f9fafb;padding:12px;}
+.fp-box{max-height:300px;overflow-y:auto;padding-right:6px;}
+.fp-box::-webkit-scrollbar{width:8px;}
+.fp-box::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
+.fp-box::-webkit-scrollbar-thumb:hover{background:#999;}
+.fp-btn{background:#2563eb;border-radius:6px;color:#fff!important;display:inline-block;font-size:0.9em;font-weight:500;padding:6px 14px;text-decoration:none;transition:all 0.2s;}
+.fp-btn:hover{background:#1d4ed8;}
+.fp-btn.secondary{background:#e5e7eb;color:#111!important;}
+.fp-btn.secondary:hover{background:#d1d5db;}
+.fp-btn.warning{background:#f97316;color:#fff!important;}
+.fp-btn.warning:hover{background:#ea580c;}
+.fp-empty{background:#fafafa;border:2px dashed #ccc;border-radius:6px;color:#aaa;font-size:0.9em;line-height:60px;margin:6px 0;min-height:60px;padding:20px;text-align:center;}
+.fp-empty.ui-state-highlight{background:#e0f2fe;border-color:#38bdf8;color:#0369a1;}
+.fp-feedback{display:none;font-weight:500;margin-bottom:10px;padding:8px 12px;border-radius:6px;text-align:center;}
+.fp-form-container .fp-options{padding:20px 20px 10px 20px;}
+.fp-handle{color:#666;cursor:grab;font-size:18px;padding:0 6px;user-select:none;}
+.fp-handle:hover{color:#111;}
+.fp-sortable{list-style:none;margin:0;min-height:60px;padding:0;}
+.fp-status{font-size:0.9em;font-weight:700;margin-left:6px;}
+.fp-status-badge{border:1px solid transparent;border-radius:12px;display:inline-block;font-size:0.85em;font-weight:500;margin-left:8px;padding:2px 8px;vertical-align:middle;}
+.fp-status-badge.fp-status-expired{background-color:#f3f4f6;border-color:#d1d5db;color:#4b5563;}
+.fp-status-badge.fp-status-featured{background-color:#ecfdf5;border-color:#a7f3d0;color:#065f46;}
+.fp-status-badge.fp-status-pending{background-color:#fefce8;border-color:#fde68a;color:#854d0e;}
+.fp-status-badge.fp-status-queued{background-color:#eff6ff;border-color:#bfdbfe;color:#1e40af;}
+.fp-status-expired{color:#888;}
+.fp-status-featured{color:#080;}
+.fp-status-none{color:#aaa;}
+.fp-status-pending{color:#b80;}
+.fp-status-queued{color:#06c;}
+.jGrowl{font-family:inherit;max-width:340px;z-index:99999;}
+.jGrowl-close{color:inherit!important;cursor:pointer;font-weight:bold;margin-left:8px;opacity:0.6;}
+.jGrowl-close:hover{opacity:1;}
+.jGrowl-notification{border:1px solid #28a745;border-radius:10px!important;box-shadow:0 4px 10px rgba(0,0,0,0.12);font-size:0.9em!important;font-weight:500!important;margin-bottom:10px!important;padding:12px 16px!important;}
+.jGrowl-notification.error{background:#fee2e2;border:1px solid #dc2626;color:#991b1b;}
+.jGrowl-notification.success{background:#d4edda;border:1px solid #28a745;color:#155724;}
+.jGrowl-notification.warning{background:#fef9c3;border:1px solid #f59e0b;color:#92400e;}
+.poll-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);transition:all 0.2s;}
+.poll-card .thead{align-items:center;background:linear-gradient(90deg,#f5f8fc,#ebf0f8);border-bottom:1px solid #ddd;display:flex;justify-content:space-between;padding:16px 20px;}
+.poll-option{margin:10px 0;}
+.poll-option label{align-items:center;background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;display:flex;gap:10px;padding:12px 14px;transition:all 0.2s;}
+.poll-option label:hover{background:#f1f5f9;}
+.poll-result{align-items:center;display:flex;font-size:0.95em;gap:12px;margin:6px 0;}
+.poll-result .bar{background:#f1f5f9;border-radius:7px;height:14px;overflow:hidden;}
+.poll-result .bar-inner{background:linear-gradient(90deg,#3b82f6,#1d4ed8);height:100%;}
+.poll-result div{color:#333;}
+.smalltext-extra{margin-top:4px;}
+.ui-sortable-helper{background:#fff;border-radius:6px;box-shadow:0 6px 14px rgba(0,0,0,0.15);opacity:0.9;transform:scale(1.02);}
+.ui-state-highlight{background:#e0f2fe;border:2px dashed #38bdf8;border-radius:6px;height:48px;margin:6px 0;}
+@media (max-width: 768px) {.fp-tools-flex {flex-direction: column;}}
 CSS;
 
 
@@ -396,7 +326,7 @@ function featuredpolls_activate()
     );
     find_replace_templatesets(
         'polls_showresults',
-        '#' . preg_quote('<strong>{$lang->poll} {$poll[\'question\']}</strong>') . '#i',
+        '#' . preg_quote('{$poll[\'question\']}</strong>') . '#i',
         '{$poll[\'question\']}</strong><span class="smalltext">{$poll_featured_status}</span>'
     );
 
@@ -412,8 +342,9 @@ function featuredpolls_deactivate()
     find_replace_templatesets('headerinclude', "#".preg_quote('<script type="text/javascript" src="{$mybb->asset_url}/jscripts/featuredpolls/featuredpolls_front.js?ver=1.0"></script>'."\n")."#", '', 0);
 	find_replace_templatesets('showthread_poll','#' . preg_quote('<span class="smalltext">{$poll_featured_status}</span>') . '#i',	'', 0);
 	find_replace_templatesets('showthread_poll_results','#' . preg_quote('<span class="smalltext">{$poll_featured_status}</span>') . '#i',	'', 0);
-	find_replace_templatesets('poll_results','#' . preg_quote('<span class="smalltext">{$poll_featured_status}</span>') . '#i',	'', 0);
+	find_replace_templatesets('polls_showresults','#' . preg_quote('<span class="smalltext">{$poll_featured_status}</span>') . '#i',	'', 0);
 }
+
 
 function featuredpolls_install_templates()
 {
@@ -448,7 +379,7 @@ function featuredpolls_install_templates()
 JLP423;
 
 	$t['featuredpolls_item'] = <<<'JLP423'
-<div id="fp_{$poll['pid']}" class="fp-form-container" style="margin:0 auto 20px;" 
+<div id="fp_{$poll['pid']}" class="fp-form-container" 
     data-error-unable-fetch-results="{$lang->fp_error_unable_fetch_results}"
     data-error-network="{$lang->fp_error_network}"
     data-error-unable-undo="{$lang->fp_error_unable_undo}"
@@ -458,22 +389,22 @@ JLP423;
         <input type="hidden" name="my_post_key" value="{$mybb->post_code}">
         <input type="hidden" name="pid" value="{$poll['pid']}">
 
-        <div class="poll-card" style="border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.06); transition:all 0.2s;">
-            <div class="thead" style="padding:16px 20px; background:linear-gradient(90deg,#f5f8fc,#ebf0f8); border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+        <div class="poll-card">
+            <div class="thead">
                 <strong style="font-size:1.1em; color:#1c1c1c;">{$poll['question_html']}</strong>
                 <span class="smalltext">
                     <a href="{$thread_url}" style="color:#2563eb; text-decoration:none;">{$lang->fp_view_thread}</a>
                 </span>
             </div>
 
-            <div class="fp-options" style="padding:20px 20px 10px 20px;">
-                <div class="fp-feedback smalltext" style="margin-bottom:10px; padding:8px 12px; border-radius:6px; display:none; text-align:center; font-weight:500;"></div>
+            <div class="fp-options">
+                <div class="fp-feedback smalltext"></div>
                 <div class="fp-options-inner">
                     {$options_or_results_html}
                 </div>
             </div>
 
-            <div class="fp-actions" style="padding:14px 20px; border-top:1px solid #eee; background:#fafafa; display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">
+            <div class="fp-actions">
                 {$actions_html}
             </div>
         </div>
@@ -506,8 +437,8 @@ JLP423;
 JLP423;
 
 	$t['featuredpolls_option'] = <<<'JLP423'
-<div class="poll-option" style="margin:10px 0;">
-    <label style="display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa; cursor:pointer; transition:all 0.2s;">
+<div class="poll-option">
+    <label>
         <input type="{$input_type}" name="options[]" value="{$index}" style="margin:0;" />
         <span style="flex:1;">{$text}</span>
     </label>
@@ -515,7 +446,7 @@ JLP423;
 JLP423;
 
 	$t['featuredpolls_result'] = <<<'JLP423'
-<div class="poll-result" style="display:flex; align-items:center; gap:12px; margin:6px 0; font-size:0.95em;">
+<div class="poll-result">
     <div style="flex:1; min-width:120px; text-align:right;">{$text}</div>
     <div style="flex:3;">
         <div style="background:#f1f5f9; border-radius:7px; overflow:hidden; height:14px;">
@@ -533,7 +464,7 @@ JLP423;
 JLP423;
 
 	$t['featuredpolls_result_total'] = <<<'JLP423'
-<div class="poll-result" style="display:flex; align-items:center; gap:12px; margin-top:10px; font-weight:bold; font-size:0.95em;">
+<div class="poll-result">
     <div style="flex:3;"></div>
     <div style="flex:1; min-width:120px; text-align:right;">{$lang->fp_total}</div>
     <div style="flex:0 0 auto; min-width:60px; text-align:right; color:#333;">
@@ -609,7 +540,7 @@ $t['featuredpolls_modcp'] = <<<'JLP423'
                                     <div class="thead"><strong>{$lang->fp_modcp_featured} {$featured_count_html}</strong></div>
 									<div class="trow1">
 										<div class="fp-box">
-											<ul id="fp-featured" class="fp-sortable" style="list-style:none;margin:0;padding:0;">
+											<ul id="fp-featured" class="fp-sortable">
 												{$featured}
 											</ul>
 										</div>
@@ -623,7 +554,7 @@ $t['featuredpolls_modcp'] = <<<'JLP423'
                                     <div class="thead"><strong>{$lang->fp_modcp_expired_polls}</strong></div>
                                     <div class="trow1">
 										<div class="fp-box">
-											<ul id="fp-expired" class="fp-sortable" style="list-style:none;margin:0;padding:0;">
+											<ul id="fp-expired" class="fp-sortable">
 												{$expired}
 											</ul>
 										</div>
@@ -639,42 +570,65 @@ $t['featuredpolls_modcp'] = <<<'JLP423'
                                     <div class="thead"><strong>{$lang->fp_modcp_queue}</strong></div>
                                     <div class="trow1">
 										<div class="fp-box">
-											<ul id="fp-queue" class="fp-sortable" style="list-style:none;margin:0;padding:0;">
+											<ul id="fp-queue" class="fp-sortable">
 												{$queue}
 											</ul>
 										</div>
                                     </div>
                                 </div>
-                                <!-- Add PID box directly below Queue -->
-                                {$add_by_pid}
                             </td>
 
-                            <!-- Requested + Bulk Actions -->
-                            <td valign="top" width="50%">
-                                <div class="tborder" style="margin-bottom:15px;">
-                                    <div class="thead"><strong>{$lang->fp_modcp_requested_polls}</strong></div>
-                                    <div class="trow1">
+							<!-- Requested + Management Tools -->
+							<td valign="top" width="50%">
+								<div class="tborder" style="margin-bottom:15px;">
+									<div class="thead"><strong>{$lang->fp_modcp_requested_polls}</strong></div>
+									<div class="trow1">
 										<div class="fp-box">
-											<ul id="fp-pending" class="fp-sortable" style="list-style:none;margin:0;padding:0;">
+											<ul id="fp-pending" class="fp-sortable">
 												{$requests}
 											</ul>
 										</div>
-                                    </div>
-                                </div>
-
-                                <!-- Bulk Actions box -->
-                                <div class="tborder">
-                                    <div class="thead"><strong>{$lang->fp_modcp_bulk_actions}</strong></div>
-                                    <div class="trow1" style="padding:10px;">
-                                        <input type="submit" class="button" name="approve" value="{$lang->fp_modcp_btn_approve}" />
-                                        <input type="submit" class="button" name="queue" value="{$lang->fp_modcp_btn_queue}" />
-                                        <input type="submit" class="button" name="unfeature" value="{$lang->fp_modcp_btn_unfeature}" />
-                                        <input type="submit" class="button" name="expire" value="{$lang->fp_modcp_btn_expire}" />
-                                        <input type="submit" class="button" name="remove" value="{$lang->fp_modcp_btn_remove}" />
-                                    </div>
-                                </div>
-                            </td>
+									</div>
+								</div>
+							</td>
                         </tr>
+						<!-- Full-width management tools row -->
+						<tr>
+						  <td colspan="2" valign="top">
+							<div class="tborder" style="margin-top:15px;">
+							  <div class="thead"><strong>{$lang->fp_modcp_manage_tools}</strong></div>
+							  <div class="trow1" style="padding:15px; background:#f8f9fa;">
+								<div class="fp-tools-flex" style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start; justify-content:space-between;">
+
+								  <!-- Add by PID -->
+								  <div style="flex:1 1 48%; min-width:280px;">
+									<div style="font-weight:bold; margin-bottom:6px;">{$lang->fp_modcp_add_by_pid}</div>
+									<form id="fp_add_form" action="javascript:void(0);" style="display:flex; gap:6px; flex-wrap:wrap;">
+									  <input type="hidden" name="my_post_key" value="{$mybb->post_code}" />
+									  <input type="text" id="fp_add_pids" name="fp_add_pids" size="40"
+											 placeholder="{$lang->fp_modcp_add_placeholder}" class="textbox" />
+									  <button type="button" class="button" id="fp_add_btn">{$lang->fp_modcp_add}</button>
+									</form>
+									<div id="fp_add_msg" class="smalltext" style="margin-top:5px; display:none;"></div>
+								  </div>
+
+								  <!-- Bulk Actions -->
+								  <div style="flex:1 1 48%; min-width:260px;">
+									<div style="font-weight:bold; margin-bottom:6px;">{$lang->fp_modcp_bulk_actions}</div>
+									<div style="display:flex; flex-wrap:wrap; gap:6px;">
+									  <input type="submit" class="button" name="approve" value="{$lang->fp_modcp_btn_approve}" />
+									  <input type="submit" class="button" name="queue" value="{$lang->fp_modcp_btn_queue}" />
+									  <input type="submit" class="button" name="unfeature" value="{$lang->fp_modcp_btn_unfeature}" />
+									  <input type="submit" class="button" name="expire" value="{$lang->fp_modcp_btn_expire}" />
+									  <input type="submit" class="button" name="remove" value="{$lang->fp_modcp_btn_remove}" />
+									</div>
+								  </div>
+
+								</div>
+							  </div>
+							</div>
+						  </td>
+						</tr>
                     </table>
                 </td>
             </tr>
@@ -701,6 +655,7 @@ JLP423;
             </div>
             <div class="smalltext">
                 {$lang->fp_modcp_added_on} {$date}
+				{$requester_html}
             </div>
             <div class="smalltext-extra">
                 {$extra_html}
@@ -726,16 +681,17 @@ JLP423;
 </div>
 JLP423;
 
+    //Insert/Update Master Set (sid=-2)
     foreach ($t as $title => $template_raw) {
         $exists = $db->fetch_field(
-            $db->simple_select('templates', 'tid', "title='".$db->escape_string($title)."' AND sid='-'"),
+            $db->simple_select('templates', 'tid', "title='".$db->escape_string($title)."' AND sid='-2'"),
             'tid'
         );
 
         $row = [
             'title'    => $db->escape_string($title),
             'template' => $db->escape_string($template_raw),
-            'sid'      => -1,
+            'sid'      => -2,
             'version'  => '1800',
             'dateline' => TIME_NOW
         ];
@@ -746,6 +702,35 @@ JLP423;
             $db->insert_query('templates', $row);
         }
     }
+    
+	// Duplicate templates into each theme's templateset (sid > 0)
+	// This allows theme-level overrides without overwriting master (-2)
+	$query = $db->simple_select('templatesets', 'sid');
+	while ($set = $db->fetch_array($query)) {
+		$sid = (int)$set['sid'];
+		foreach ($t as $title => $raw) {
+			$exists = $db->fetch_field(
+				$db->simple_select('templates', 'tid', "title='".$db->escape_string($title)."' AND sid='{$sid}'"),
+				'tid'
+			);
+			if (!$exists) {
+				$db->insert_query('templates', [
+					'title'    => $db->escape_string($title),
+					'template' => $db->escape_string($raw),
+					'sid'      => $sid,
+					'version'  => '1800',
+					'dateline' => TIME_NOW
+				]);
+			}
+		}
+	}
+
+
+	// Refresh templates cache for all themes
+	$query = $db->simple_select('themes', 'tid');
+	while ($theme = $db->fetch_array($query)) {
+		update_theme_stylesheet_list($theme['tid'], false, true);
+	}
 }
 
 function featuredpolls_uninstall_templates()
@@ -757,7 +742,7 @@ function featuredpolls_uninstall_templates()
 
 
 $plugins->add_hook('global_start', 'featuredpolls_load_core_lang');
-$plugins->add_hook('global_start', 'featuredpolls_global_start');
+$plugins->add_hook('global_end', 'featuredpolls_global_start');
 $plugins->add_hook('xmlhttp', 'featuredpolls_xmlhttp');
 $plugins->add_hook('modcp_start', 'featuredpolls_modcp');
 $plugins->add_hook('polls_newpoll_start', 'featuredpolls_make_checkbox');
@@ -805,6 +790,42 @@ function featuredpolls_trim_and_reorder()
         $db->update_query('featuredpolls', ['disporder' => $i], "pid={$pid}");
     }
 }
+
+function featuredpolls_get_template($title)
+{
+    global $templates, $db, $theme;
+
+    // Try cache first (works if $templates is initialized)
+    if (isset($templates->cache[$title])) {
+        return $templates->cache[$title];
+    }
+
+    // Try to get it for current theme
+    if (!empty($theme['tid'])) {
+        $template = $db->fetch_field(
+            $db->simple_select('templates', 'template', "title='".$db->escape_string($title)."' AND sid='".(int)$theme['tid']."'"),
+            'template'
+        );
+        if ($template) {
+            $templates->cache[$title] = $template;
+            return $template;
+        }
+    }
+
+    // Fallback to global (-2)
+    $template = $db->fetch_field(
+        $db->simple_select('templates', 'template', "title='".$db->escape_string($title)."' AND sid='-2'"),
+        'template'
+    );
+    if ($template) {
+        $templates->cache[$title] = $template;
+        return $template;
+    }
+
+    // Still nothing
+    return '';
+}
+
 
 function featuredpolls_cleanup_expired()
 {
@@ -977,7 +998,8 @@ function featuredpolls_handle_request()
                     $db->update_query('featuredpolls', [
                         'featured' => 0,
                         'dateline' => TIME_NOW,
-                        'expires'  => 0
+                        'expires'  => 0,
+                        'requested_by' => (int)$mybb->user['uid']
                     ], "pid={$pid}");
                     return $lang->fp_pending_review;
                 }
@@ -985,7 +1007,8 @@ function featuredpolls_handle_request()
             }
 
             $db->update_query('featuredpolls', [
-                'dateline' => TIME_NOW
+                'dateline' => TIME_NOW,
+                'requested_by' => (int)$mybb->user['uid']
             ], "pid={$pid}");
 
             $status_map = [
@@ -1008,7 +1031,8 @@ function featuredpolls_handle_request()
 				'featured'  => 0,
 				'dateline'  => TIME_NOW,
 				'expires'   => 0,
-				'disporder' => $disporder
+				'disporder' => $disporder,
+                'requested_by' => (int)$mybb->user['uid']
 			]);
             return $lang->fp_pending_review;
         }
@@ -1053,7 +1077,7 @@ function featuredpolls_global_start()
 
 function featuredpolls_render_block($limit)
 {
-    global $db, $mybb, $templates, $lang;
+    global $db, $mybb, $theme, $templates, $lang;
 	
     if (empty($mybb->settings['featuredpolls_enabled'])) {
         return '';
@@ -1087,16 +1111,52 @@ function featuredpolls_render_block($limit)
 		$items .= featuredpolls_render_item($poll);
 	}
 
-    if ($items === '') {
-        return '';
-    }
+	if ($items === '') {
+		return '';
+	}
 
-    eval("\$out = \"".$templates->get('featuredpolls_container')."\";");
-    return $out;
+	// Force refresh (avoid cached copy)
+	unset($templates->cache['featuredpolls_container']);
+
+	$template_html = '';
+
+	// Try using theme's *template set ID*, not the theme ID
+	if (!empty($theme['templateset'])) {
+		$template_html = $db->fetch_field(
+			$db->simple_select(
+				'templates',
+				'template',
+				"title='featuredpolls_container' AND sid='".(int)$theme['templateset']."'"
+			),
+			'template'
+		);
+	}
+
+	// Fallback to global (-2)
+	if (!$template_html) {
+		$template_html = $db->fetch_field(
+			$db->simple_select(
+				'templates',
+				'template',
+				"title='featuredpolls_container' AND sid='-2'"
+			),
+			'template'
+		);
+	}
+
+	if (!$template_html) {
+		return '';
+	}
+
+	eval("\$out = \"".str_replace('"', '\"', $template_html)."\";");
+	return $out;
 }
 
 function featuredpolls_render_item($poll)
 {
+	// Builds individual poll HTML for front-end block.
+	// Decides between showing vote form, results, or readonly view depending on permissions and state.
+
     global $mybb, $templates, $lang;
 
     $thread_url = 'showthread.php?tid='.(int)$poll['tid'].'#pid'.(int)$poll['pid'];
@@ -1234,6 +1294,8 @@ function featuredpolls_ajax_reorder()
         featuredpolls_ajax_fail($lang->fp_error_nopermission);
     }
 
+    // Handles drag-and-drop reorder from ModCP page.
+    // Payload format: JSON { listId: {status, order:[pid1,pid2,...]} }
     $payload   = json_decode($mybb->get_input('payload'), true);
     $moved_pid = (int)$mybb->get_input('moved_pid');
     if (!is_array($payload) || $moved_pid <= 0) {
@@ -1264,6 +1326,7 @@ function featuredpolls_ajax_reorder()
             ];
 
             if ($status === 1 && $pid === $moved_pid) {
+				// If poll just became featured for the first time, set default expiry automatically.
                 $existing = $db->fetch_array(
                     $db->simple_select('featuredpolls', 'featured,expires', "pid={$pid}", ['limit' => 1])
                 );
@@ -1640,6 +1703,8 @@ function featuredpolls_ajax_vote()
 {
     global $mybb, $db, $lang, $templates;
 
+    // Validate POST key to prevent CSRF
+    // Each AJAX vote must include user's valid post_key.
     if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
         featuredpolls_ajax_fail($lang->fp_error_postkey);
     }
@@ -2123,22 +2188,25 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
     global $db, $mybb, $lang, $templates;
 
     $items = '';
-    $count = 0; // Add a counter
+    $count = 0;
     $where = "f.featured = " . (int)$status_id;
     $order_by = ($status_id == 2) ? "f.expires DESC" : "f.dateline ASC";
     $limit_sql = ($limit > 0) ? "LIMIT " . (int)$limit : "";
 
-    $q = $db->query("
-        SELECT f.*, p.tid, p.question, t.subject
-        FROM ".TABLE_PREFIX."featuredpolls f
-        LEFT JOIN ".TABLE_PREFIX."polls p ON (p.pid=f.pid)
-        LEFT JOIN ".TABLE_PREFIX."threads t ON (t.tid=p.tid)
-        WHERE {$where}
-        ORDER BY f.disporder ASC, {$order_by}
-        {$limit_sql}
-    ");
+    // Include requester info
+	$q = $db->query("
+		SELECT f.*, p.tid, p.question, t.subject,
+			   u.username AS requester_name, u.uid AS requester_uid, u.usergroup, u.displaygroup
+		FROM ".TABLE_PREFIX."featuredpolls f
+		LEFT JOIN ".TABLE_PREFIX."polls p ON (p.pid=f.pid)
+		LEFT JOIN ".TABLE_PREFIX."threads t ON (t.tid=p.tid)
+		LEFT JOIN ".TABLE_PREFIX."users u ON (u.uid=f.requested_by)
+		WHERE {$where}
+		ORDER BY f.disporder ASC, {$order_by}
+		{$limit_sql}
+	");
     
-    $count = $db->num_rows($q); // Get the count of items
+    $count = $db->num_rows($q);
 
     while ($r = $db->fetch_array($q)) {
         $poll_question  = htmlspecialchars_uni($r['question'] ?: $lang->fp_no_question);
@@ -2148,8 +2216,22 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
         $properties = featuredpolls_get_status_properties($r['featured']);
         $status_label = $properties['label'];
         $status_class = $properties['class'];
-        
+
         $extra_html = featuredpolls_build_extra_html($r, (int)$r['featured'], $lang, $mybb);
+
+        // Add requester info (only for pending polls)
+		$requester_html = '';
+		if ((int)$r['featured'] === 0 && !empty($r['requester_uid']) && !empty($r['requester_name'])) {
+			// Pull the user’s group formatting if available
+			$display_name = format_name(
+				htmlspecialchars_uni($r['requester_name']),
+				(int)$r['usergroup'],
+				(int)$r['displaygroup']
+			);
+			$profile_link = build_profile_link($display_name, (int)$r['requester_uid']);
+			$requester_html = "<div class=\"smalltext\">{$lang->fp_modcp_requested_by} {$profile_link}</div>";
+		}
+
         eval("\$items .= \"".$templates->get('featuredpolls_modcp_item')."\";");
     }
     
@@ -2157,15 +2239,15 @@ function featuredpolls_build_modcp_list($status_id, $limit = 0)
         $items = "<li class='fp-empty'>{$lang->fp_modcp_drop_here}</li>";
     }
 
-    // Return an array with both the HTML and the count
     return ['html' => $items, 'count' => $count];
 }
+
 
 function featuredpolls_modcp()
 {
 	global $mybb, $db, $templates, $headerinclude, $header, $theme, $footer, $modcp_nav, $lang;
 
-	// --- 1. Add ModCP Nav Link ---
+	// Add ModCP Nav Link ---
 	if (strpos((string)$modcp_nav, '<!--FEATUREDPOLLS_NAV-->') !== false)
 	{
 		$scope = $mybb->settings['featuredpolls_manage_scope'] ?? 'cancp';
@@ -2187,13 +2269,13 @@ function featuredpolls_modcp()
 		}
 	}
 
-	// --- 2. Check if we are on the correct page ---
+	// Check if we are on the correct page ---
 	if ($mybb->get_input('action') !== 'featuredpolls')
 	{
 		return;
 	}
 
-	// --- 3. From this point on, we are rendering the main page ---
+	// Rendering the main page ---
 	
 	// Permission checks for the page itself
 	$scope = $mybb->settings['featuredpolls_manage_scope'] ?? 'cancp';
@@ -2212,6 +2294,8 @@ function featuredpolls_modcp()
 	add_breadcrumb($lang->fp_breadcrumb_modcp, "modcp.php");
 	add_breadcrumb($lang->fp_modcp_page_title, "modcp.php?action=featuredpolls");
 
+	// Build each status list: Featured / Pending / Expired / Queue
+	// Each list renders with sortable <ul> for drag-and-drop updates.
 	if ($mybb->request_method === 'post')
 	{
         verify_post_check($mybb->get_input('my_post_key'));
@@ -2340,6 +2424,7 @@ function featuredpolls_build_extra_html($r, $status, $lang, $mybb)
     $pid = (int)$r['pid'];
     $ts  = (int)$r['expires'];
 
+    // For featured polls: show editable expiry datetime with live AJAX save button.
 	if ($status === 1) {
 		$expiry_value = (int)$r['expires'] > 0
 			? my_date('Y-m-d\TH:i', (int)$r['expires'])
@@ -2369,6 +2454,7 @@ function featuredpolls_build_extra_html($r, $status, $lang, $mybb)
 		  </div>";
 	}
 
+	// For expired polls: display their expiry.
 	if ($status === 2) {
 		$expiry_human = (int)$r['expires'] > 0
 			? my_date($mybb->settings['dateformat'].', '.$mybb->settings['timeformat'], (int)$r['expires'])
@@ -2378,7 +2464,8 @@ function featuredpolls_build_extra_html($r, $status, $lang, $mybb)
 			{$lang->fp_modcp_expires}: <em>{$expiry_human}</em>
 		</div>";
 	}
-
+	
+	// For queued polls: display their position in the queue list.
     if ($status === 3) {
         $place = (int)$r['disporder'];
         return "<div class='smalltext smalltext-extra'>

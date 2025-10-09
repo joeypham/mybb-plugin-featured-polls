@@ -1,0 +1,149 @@
+<?php
+/**
+ * T?p ngôn ng? cho Featured Polls
+ * Ti?n t?: fp_
+ * Ðý?c t? ch?c theo t?ng ph?n ð? d? hi?u.
+ */
+
+// -----------------------------------------------------------------------------
+// GIAO DI?N NGÝ?I DÙNG — HI?N TH? & HÀNH Ð?NG
+// -----------------------------------------------------------------------------
+$l['fp_block_title']      = 'B?nh ch?n n?i b?t';
+$l['fp_no_featured']      = 'Hi?n chýa có b?nh ch?n n?i b?t nào.';
+$l['fp_view_thread']      = 'Xem ch? ð?';
+$l['fp_vote']             = 'B?nh ch?n!';
+$l['fp_results']          = 'Xem k?t qu?';
+$l['fp_undo']             = 'H?y b?nh ch?n';
+$l['fp_edit']             = 'Ch?nh s?a b?nh ch?n';
+$l['fp_votes']            = 'Lý?t b?nh ch?n';
+$l['fp_votethanks']       = 'C?m õn b?n ð? b?nh ch?n!';
+$l['fp_unvoted']          = 'B?nh ch?n c?a b?n ð? b? h?y.';
+$l['fp_thread']           = 'Ch? ð?:';
+$l['fp_voted_marker']     = '*';
+$l['fp_guest']            = 'Khách';
+$l['fp_more_voters']      = '+{1}';
+$l['fp_total']            = 'T?ng c?ng';
+$l['fp_no_subject']       = '(không có tiêu ð?)';
+$l['fp_no_question']      = '(không có câu h?i)';
+$l['fp_back_to_voting']   = 'Quay l?i b?nh ch?n';
+$l['fp_featured']         = 'N?i b?t';
+$l['fp_expired']          = 'H?t h?n';
+$l['fp_queued']           = 'Ðang ch?';
+$l['fp_pending_review']   = 'Ðang ch? duy?t';
+$l['fp_not_submitted']    = 'Chýa g?i';
+$l['fp_unknown']          = 'Không xác ð?nh';
+$l['fp_request']          = 'Yêu c?u làm n?i b?t b?nh ch?n này!';
+$l['fp_status_change']    = 'B?nh ch?n #{1} hi?n là {2} (V? trí #{3})';
+$l['fp_invalid_pid']      = 'M? b?nh ch?n không h?p l?.';
+
+// -----------------------------------------------------------------------------
+// THÔNG BÁO & L?I AJAX
+// -----------------------------------------------------------------------------
+$l['fp_ajax_added']   = 'Ð? thêm PID thành công: {1}';
+$l['fp_ajax_present'] = 'PID ð? t?n t?i trong h? th?ng: {1}';
+$l['fp_ajax_invalid'] = 'PID không h?p l?: {1}';
+$l['fp_ajax_error']   = 'L?i';
+$l['fp_ajax_unknown'] = 'L?i không xác ð?nh';
+
+// -----------------------------------------------------------------------------
+// X? L? L?I (GIAO DI?N + AJAX)
+// -----------------------------------------------------------------------------
+$l['fp_error_generic']             = 'Ð? x?y ra l?i.';
+$l['fp_error_network']             = 'L?i m?ng.';
+$l['fp_error_unable_fetch_results']= 'Không th? t?i k?t qu?.';
+$l['fp_error_invalidpoll']         = 'Không t?m th?y b?nh ch?n.';
+$l['fp_error_pollclosed']          = 'B?nh ch?n này ð? ðóng.';
+$l['fp_error_postkey']             = 'M? POST không h?p l?.';
+$l['fp_error_select_option']       = 'Vui l?ng ch?n m?t tùy ch?n.';
+$l['fp_error_nooption']            = 'Vui l?ng ch?n m?t tùy ch?n.';
+$l['fp_error_onlyone']             = 'B?n ch? ðý?c ch?n m?t tùy ch?n.';
+$l['fp_error_maxtoosoon']          = 'B?n ch? ðý?c ch?n t?i ða {1} tùy ch?n.';
+$l['fp_error_invalidoption']       = 'Tùy ch?n không h?p l?.';
+$l['fp_error_unable_undo']         = 'Không th? h?y b?nh ch?n.';
+$l['fp_error_noundo']              = 'B?n không ðý?c phép h?y b?nh ch?n.';
+$l['fp_error_nopermission']        = 'B?n không có quy?n th?c hi?n hành ð?ng này.';
+$l['fp_error_invalidpayload']      = 'D? li?u g?i ði không h?p l?.';
+$l['fp_no_permission']             = 'B?n không có quy?n th?c hi?n hành ð?ng này.';
+
+// -----------------------------------------------------------------------------
+// MOD CP — THANH ÐI?U HÝ?NG & TIÊU Ð? TRANG
+// -----------------------------------------------------------------------------
+$l['fp_modcp_nav_title']     = 'B?nh ch?n n?i b?t';
+$l['fp_modcp_page_title']    = 'B?nh ch?n n?i b?t';
+$l['fp_breadcrumb_modcp']    = 'B?ng ði?u khi?n Mod';
+
+// -----------------------------------------------------------------------------
+// MOD CP — DANH M?C & TIÊU Ð?
+// -----------------------------------------------------------------------------
+$l['fp_modcp_featured']      = 'B?nh ch?n n?i b?t';
+$l['fp_modcp_requested_polls']= 'B?nh ch?n ðý?c yêu c?u';
+$l['fp_modcp_expired_polls'] = 'B?nh ch?n ð? h?t h?n';
+$l['fp_modcp_queue']         = 'B?nh ch?n ðang ch?';
+
+// -----------------------------------------------------------------------------
+// MOD CP — TR?NG THÁI
+// -----------------------------------------------------------------------------
+$l['fp_modcp_status_featured'] = 'N?i b?t';
+$l['fp_modcp_status_pending']  = 'Ðang ch?';
+$l['fp_modcp_status_expired']  = 'H?t h?n';
+$l['fp_modcp_status_queued']   = 'Ðang ch?';
+$l['fp_modcp_slots']		   = 'ô tr?ng';
+
+// -----------------------------------------------------------------------------
+// MOD CP — NÚT & HÀNH Ð?NG HÀNG LO?T
+// -----------------------------------------------------------------------------
+$l['fp_modcp_bulk_actions']   = 'Hành ð?ng hàng lo?t';
+$l['fp_modcp_btn_approve']    = 'Chuy?n sang N?i b?t';
+$l['fp_modcp_btn_unfeature']  = 'Chuy?n v? Ðang ch?';
+$l['fp_modcp_btn_queue']      = 'Chuy?n sang Hàng ch?';
+$l['fp_modcp_btn_expire']     = 'Chuy?n sang H?t h?n';
+$l['fp_modcp_btn_remove']     = 'Xóa hoàn toàn';
+$l['fp_modcp_btn_update_expiry'] = 'C?p nh?t ngày h?t h?n';
+
+// -----------------------------------------------------------------------------
+// MOD CP — NH?N B?NG & BI?U M?U
+// -----------------------------------------------------------------------------
+$l['fp_modcp_thread_label']  = 'Ch? ð?:';
+$l['fp_modcp_pid_label']     = 'PID';
+$l['fp_modcp_expires']       = 'H?t h?n';
+$l['fp_modcp_added_on']      = 'Thêm vào lúc:';
+$l['fp_modcp_queue_place']   = 'V? trí trong hàng:';
+$l['fp_no_expiry']           = 'Không có th?i h?n';
+$l['fp_never']               = 'Không bao gi?';
+$l['fp_modcp_save']          = 'Lýu';
+
+// -----------------------------------------------------------------------------
+// MOD CP — HÝ?NG D?N & G?I ?
+// -----------------------------------------------------------------------------
+$l['fp_modcp_add_by_pid']      = 'Thêm b?nh ch?n theo PID';
+$l['fp_modcp_add_placeholder'] = 'ví d?: 12,34,56';
+$l['fp_modcp_add']             = 'Thêm';
+
+// -----------------------------------------------------------------------------
+// MOD CP — THÔNG BÁO H? TH?NG / CHUY?N HÝ?NG
+// -----------------------------------------------------------------------------
+$l['fp_modcp_redirect_unfeatured']     = 'Ð? chuy?n các b?nh ch?n v? tr?ng thái ðang ch?.';
+$l['fp_modcp_redirect_order_saved']    = 'Th? t? b?nh ch?n ð? ðý?c c?p nh?t.';
+$l['fp_modcp_redirect_queued']         = 'Ð? chuy?n b?nh ch?n vào hàng ch?.';
+$l['fp_modcp_redirect_expired']        = 'B?nh ch?n ð? ðý?c ðánh d?u h?t h?n.';
+$l['fp_modcp_redirect_expiry_updated'] = 'Ngày h?t h?n ð? ðý?c c?p nh?t.';
+$l['fp_modcp_removed']                 = 'B?nh ch?n ð? b? xóa kh?i danh sách n?i b?t.';
+$l['fp_redirect_removed']              = 'Ð? xóa.';
+
+// -----------------------------------------------------------------------------
+// MOD CP — GIAO DI?N & Y?U T? HI?N TH?
+// -----------------------------------------------------------------------------
+$l['fp_modcp_drop_here']               = 'Kéo b?nh ch?n vào ðây';
+$l['fp_modcp_featured_limit_reached']  = 'B?n ch? có th? làm n?i b?t t?i ða {1} b?nh ch?n.';
+$l['fp_modcp_expiry_updated']          = 'Ð? c?p nh?t ngày h?t h?n.';
+$l['fp_modcp_featured_none']           = 'Chýa có b?nh ch?n n?i b?t nào.';
+$l['fp_modcp_request_none']            = 'Không có yêu c?u b?nh ch?n nào ðang ch?.';
+$l['fp_modcp_requested_by']            = 'Ðý?c yêu c?u b?i:';
+$l['fp_modcp_queue_none']              = 'Không có b?nh ch?n nào trong hàng ch?.';
+$l['fp_modcp_manage_tools']            = 'Công c? qu?n l? b?nh ch?n';
+
+// -----------------------------------------------------------------------------
+// MOD CP — THÔNG BÁO & C?NH BÁO
+// -----------------------------------------------------------------------------
+$l['fp_notice_limit_reached_title'] = 'Ð? ð?t gi?i h?n b?nh ch?n n?i b?t';
+$l['fp_notice_limit_reached_desc']  = 'B?n ð? ð?t ð?n s? lý?ng t?i ða {1} b?nh ch?n n?i b?t. Ð? thêm m?i, h?y g? b? ho?c cho h?t h?n các b?nh ch?n hi?n t?i.';
